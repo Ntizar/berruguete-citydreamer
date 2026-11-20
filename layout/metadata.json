@@ -1,0 +1,38 @@
+{
+  "resolution": 0.45436535554172003,
+  "bounds": {
+    "xmin": 14930195,
+    "xmax": 14933967,
+    "ymin": 11490820,
+    "ymax": 11494990
+  },
+  "stats": {
+    "resolution_m_per_px": 0.4544,
+    "size_px": [
+      4171,
+      3773
+    ],
+    "size_m": [
+      1895.2,
+      1714.3
+    ],
+    "bounds_xy_px": {
+      "xmin": 14930195,
+      "xmax": 14933967,
+      "ymin": 11490820,
+      "ymax": 11494990
+    },
+    "n_highways": 2811,
+    "n_footprints": 12570,
+    "bld_pixels": 3549982,
+    "bld_coverage": 0.2256,
+    "road_coverage": 0.1334,
+    "green_coverage": 0.1371,
+    "height_p95_m": 42.0,
+    "height_max_m": 157,
+    "padded_to": [
+      4171,
+      3773
+    ]
+  }
+}

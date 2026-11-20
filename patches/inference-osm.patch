@@ -1,0 +1,99 @@
+diff --git a/scripts/inference.py b/scripts/inference.py
+index 5b92999..d187e94 100644
+--- a/scripts/inference.py
++++ b/scripts/inference.py
+@@ -60,32 +60,41 @@ CONSTANTS = {
+ 
+ 
+ def get_models(sampler_ckpt, gancraft_bg_ckpt, gancraft_fg_ckpt):
+-    # Load checkpoints
++    """Carga los generadores preentrenados.
++
++    Si se parte de un layout de OSM (city_osm_dir), el Unbounded Layout Generator
++    (vqae+sampler) no hace falta: sampler_ckpt=None y se devuelven None en su lugar.
++    """
++    vqae = sampler = None
+     logging.info("Loading checkpoints ...")
+-    sampler_ckpt = torch.load(sampler_ckpt)
++    if sampler_ckpt is not None:
++        sampler_ckpt = torch.load(sampler_ckpt)
++        vqae = models.vqgan.VQAutoEncoder(sampler_ckpt["cfg"])
++        sampler = models.sampler.AbsorbingDiffusionSampler(sampler_ckpt["cfg"])
++        if torch.cuda.is_available():
++            vqae = torch.nn.DataParallel(vqae).cuda()
++            sampler = torch.nn.DataParallel(sampler).cuda()
++        else:
++            vqae.output_device = torch.device("cpu")
++            sampler.output_device = torch.device("cpu")
+     gancraft_bg_ckpt = torch.load(gancraft_bg_ckpt)
+     gancraft_fg_ckpt = torch.load(gancraft_fg_ckpt)
+ 
+     # Initialize models
+-    vqae = models.vqgan.VQAutoEncoder(sampler_ckpt["cfg"])
+-    sampler = models.sampler.AbsorbingDiffusionSampler(sampler_ckpt["cfg"])
+     gancraft_bg = models.gancraft.GanCraftGenerator(gancraft_bg_ckpt["cfg"])
+     gancraft_fg = models.gancraft.GanCraftGenerator(gancraft_fg_ckpt["cfg"])
+     if torch.cuda.is_available():
+-        vqae = torch.nn.DataParallel(vqae).cuda()
+-        sampler = torch.nn.DataParallel(sampler).cuda()
+         gancraft_bg = torch.nn.DataParallel(gancraft_bg).cuda()
+         gancraft_fg = torch.nn.DataParallel(gancraft_fg).cuda()
+     else:
+-        vqae.output_device = torch.device("cpu")
+-        sampler.output_device = torch.device("cpu")
+         gancraft_bg.output_device = torch.device("cpu")
+         gancraft_fg.output_device = torch.device("cpu")
+ 
+     # Recover from checkpoints
+     logging.info("Recovering from checkpoints ...")
+-    vqae.load_state_dict(sampler_ckpt["vqae"], strict=False)
+-    sampler.load_state_dict(sampler_ckpt["sampler"], strict=False)
++    if vqae is not None:
++        vqae.load_state_dict(sampler_ckpt["vqae"], strict=False)
++        sampler.load_state_dict(sampler_ckpt["sampler"], strict=False)
+     gancraft_bg.load_state_dict(gancraft_bg_ckpt["gancraft_g"], strict=False)
+     gancraft_fg.load_state_dict(gancraft_fg_ckpt["gancraft_g"], strict=False)
+ 
+@@ -694,15 +703,22 @@ def main(
+     sampler_ckpt=None,
+     city_osm_dir=None,
+ ):
++    # With an OSM layout (hf.png + seg.png) the layout generator is not needed.
++    use_osm = city_osm_dir is not None and os.path.exists(
++        os.path.join(city_osm_dir, "hf.png")
++    )
+     vqae, sampler, gancraft_bg, gancraft_fg = get_models(
+-        sampler_ckpt, gancraft_bg_ckpt, gancraft_fg_ckpt
++        None if use_osm else sampler_ckpt, gancraft_bg_ckpt, gancraft_fg_ckpt
+     )
+     # Generate height fields and seg maps
+     logging.info("Generating city layouts ...")
+-    hf, seg, building_stats = get_city_layout(
+-        None, sampler, vqae, size=CONSTANTS["EXTENDED_VOL_SIZE"]
+-    )
+-    # hf, seg, building_stats = get_city_layout(city_osm_dir)
++    if use_osm:
++        logging.info("Using OSM city layout: %s" % city_osm_dir)
++        hf, seg, building_stats = get_city_layout(city_osm_dir)
++    else:
++        hf, seg, building_stats = get_city_layout(
++            None, sampler, vqae, size=CONSTANTS["EXTENDED_VOL_SIZE"]
++        )
+     assert hf.shape == seg.shape
+     logging.info("City Layout Patch Size (HxW): %s" % (hf.shape,))
+ 
+@@ -797,7 +813,14 @@ if __name__ == "__main__":
+         default=os.path.join(PROJECT_HOME, "output", "rendering.mp4"),
+         type=str,
+     )
++    parser.add_argument(
++        "--n_frames",
++        default=CONSTANTS["N_TRAJECTORY_POINTS"],
++        type=int,
++        help="Frames del video (24 por defecto). Bajarlo para pruebas rapidas.",
++    )
+     args = parser.parse_args()
++    CONSTANTS["N_TRAJECTORY_POINTS"] = args.n_frames
+ 
+     main(
+         (args.patch_height, args.patch_width),
