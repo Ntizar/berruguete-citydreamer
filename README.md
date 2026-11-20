@@ -20,6 +20,9 @@ renderizarlo en una GPU gratuita.
 | `scripts/berruguete_osm_fetch.py` | descarga el extracto (Overpass + `<bounds>`) |
 | `scripts/berruguete_layout.py` | rasteriza OSM → `hf.png` + `seg.png` |
 | `scripts/render_layout_3d.py` | vista 3D del layout (matplotlib, sin GPU) |
+| `scripts/render_terreno_3d.py` | **volumetría sobre el terreno real** (relieve Terrarium/AWS + edificios apoyados en su cota) |
+| `layout/berruguete_terreno_hillshade.png` | relieve real bajo la trama: 644–744 m, **101 m de desnivel** |
+| `layout/pontejos_terreno_3d.png` | el pueblo sobre su relieve: 1–44 m, laderas reales |
 | `patches/inference-osm.patch` | hace que `scripts/inference.py` use el plano de OSM y no exija `sampler.pth` |
 | `notebooks/kaggle-citydreamer-berruguete.ipynb` | cuaderno listo para Kaggle (T4 gratis) |
 | `docs/citydreamer-berruguete.md` | **el documento bueno**: arquitectura, escalas, límites y decisiones |

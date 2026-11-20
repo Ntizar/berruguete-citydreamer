@@ -221,7 +221,67 @@ no de parámetros.
    (2-3 min de vídeo en círculo). Da el pueblo **real y texturado**, y entrena en una
    3060 de 6 GB sin problema porque la escena es pequeña — justo lo que CityDreamer no puede.
 
-## 9. Y el modelo de lenguaje, ¿qué pinta aquí?
+## 9. El suelo: sobre el terreno real, sí — dentro del modelo, no
+
+Pregunta justa: ¿y apoyar todo esto en el **LiDAR del suelo español**? Hay que separar dos
+cosas que se confunden.
+
+### 9.1 Lo que NO se puede: meter el MDT dentro de CityDreamer
+
+El volumen se construye **extruyendo desde z = 0**: `extensions/extrude_tensor` rellena el
+voxel `[i, j, z]` con la clase del píxel mientras `z < hf[i, j]`. No hay canal de base. Y
+la red normaliza la altura con `NORMALIZE_DELIMETER = [1536, 1536, 640]`, así que un
+desplazamiento de base no se lee como «este edificio está a 720 m», se lee como «este
+edificio es altísimo». Además el hash-grid aprendió suelo plano: darle terreno produce
+fachadas desplazadas y artefactos, no realismo. Se podría hackear (base variable por
+columna en el kernel + reentrenar), pero es I+D, no un flag.
+
+**Consecuencia práctica**: CityDreamer va a renderizar Berruguete como si la ciudad fuera
+una mesa de billar. Y no lo es.
+
+### 9.2 Lo que SÍ, y está medido
+
+Cotas reales bajo los edificios (Terrarium/AWS, ~3,5 m/px):
+
+| Sitio | Cotas | Desnivel bajo los edificios | Desviación típica |
+|---|---|---|---|
+| **Berruguete** (Madrid) | 644 – 744 m | **100 m** | 16,2 m |
+| **Pontejos** (Cantabria) | 1 – 44 m | 43 m | 7,8 m |
+
+Cien metros de desnivel no son un detalle: el barrio no está en una plataforma y el modelo
+lo ignora. En Pontejos el caserío está en una zona baja y las naves suben por la ladera —
+plano, eso desaparece.
+
+### 9.3 Fuentes de relieve, por exactitud
+
+| Fuente | Resolución | Estado | Cuándo |
+|---|---|---|---|
+| **MDT02 / PNOA-LiDAR (IGN)** | **2 m** | WCS (`servicios.ign.es`) **no responde desde esta red** (reset); se baja por hojas del Centro de Descargas del CNIG | La buena para España; exige descargar hoja |
+| **Terrarium (AWS S3)** | ~3,5 m/px a z15 | Probado: 9/9 teselas, sin clave | Lo usado aquí: inmediato y global |
+| **Copernicus DEM 30 m** | 30 m | Probado: `HTTP 200`, `image/tiff` | Fuera de España o cuando el detalle no importa |
+| **PNOA ortofoto (IGN)** | hasta 25 cm | Probado: JPEG 512×512 real | Textura de suelo y cubiertas |
+
+### 9.4 Reglas finas que hacen que se vea «exacto»
+
+- **La cota del edificio no es la de su centroide**: se toma la **mínima** de su huella,
+  para que no flote en la esquina baja, y se levanta un zócalo hasta la máxima (muro de
+  contención). Sin eso, en pendiente, medio barrio flota.
+- **El terreno no se dibuja como losa** en matplotlib: ordena colecciones por profundidad
+  media y la pinta encima de los edificios. O `computed_zorder = False` + `zorder`
+  manual, o nada.
+- **Exageración vertical aparte**: en un visor con relieve, la altura del edificio y el
+  relieve compiten; con 100 m de desnivel y 25 m de casas, el terreno se come la escena.
+
+### 9.5 Reparto final
+
+- **Visor / malla** → MDT02 (si se descarga) o Terrarium + PNOA: sitio **fiel**, con
+  relieve y textura real. Corre sin GPU.
+- **CityDreamer** → solo el aspecto inventado, en ventana **llana**, y declarando que el
+  suelo va plano.
+- **Splatting** → si el pueblo tiene que ser *él mismo*: el relieve y la textura vienen
+  del vídeo, no de una capa.
+
+## 10. Y el modelo de lenguaje, ¿qué pinta aquí?
 
 Un LLM (qwen3.6, deepseek, el que sea) **no genera geometría 3D**. No hay prompt que
 convierta "hazme Berruguete" en una malla: quien genera la ciudad es el GAN de
