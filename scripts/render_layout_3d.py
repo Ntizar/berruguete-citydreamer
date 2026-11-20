@@ -49,7 +49,7 @@ def load_footprints(osm_file, zoom):
     return polys, bounds
 
 
-def render(polys, bounds, crop_m, out_png, max_buildings=1500, elev=38, azim=-118):
+def render(polys, bounds, crop_m, out_png, max_buildings=1500, elev=38, azim=-118, name="Berruguete (Tetuán, Madrid)"):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -110,8 +110,8 @@ def render(polys, bounds, crop_m, out_png, max_buildings=1500, elev=38, azim=-11
     ax.view_init(elev=elev, azim=azim)
     ax.set_axis_off()
     ax.set_title(
-        "Berruguete (Tetuán, Madrid) — huellas y alturas de OpenStreetMap\n"
-        "%d edificios · recorte %.0f × %.0f m · 1 px = 1 m (escala del layout de CityDreamer)"
+        "%s — huellas y alturas de OpenStreetMap\n" % name
+        + "%d edificios · recorte %.0f × %.0f m · 1 px = 1 m (escala del layout de CityDreamer)"
         % (len(sel), crop_m, crop_m),
         color="#c8d3e0",
         fontsize=13,
@@ -131,10 +131,11 @@ def main():
     ap.add_argument("--azim", default=-118, type=float)
     ap.add_argument("--elev", default=38, type=float)
     ap.add_argument("--out", default="output/berruguete_3d.png")
+    ap.add_argument("--name", default="Berruguete (Tetuán, Madrid)")
     args = ap.parse_args()
     polys, bounds = load_footprints(args.osm, args.zoom)
     print("Huellas totales en el extracto:", len(polys))
-    render(polys, bounds, args.crop_m, args.out, args.max_buildings, args.elev, args.azim)
+    render(polys, bounds, args.crop_m, args.out, args.max_buildings, args.elev, args.azim, args.name)
 
 
 if __name__ == "__main__":

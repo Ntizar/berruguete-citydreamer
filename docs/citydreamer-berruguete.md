@@ -171,7 +171,57 @@ el coste es por edificio visible y por frame).
 - La licencia es **NTU S-Lab 1.0**: uso e investigación con atribución; revisar antes de
   nada comercial.
 
-## 8. Y el modelo de lenguaje, ¿qué pinta aquí?
+## 8. Un pueblo sin datos buenos: Pontejos (Cantabria)
+
+El mismo código, apuntado a `43.4073, -3.8001`, produce esto. No falla nada: lo que cambia
+es la **escala del fenómeno**.
+
+| Ventana central 2880 px | Berruguete (Madrid) | Pontejos (Cantabria) |
+|---|---|---|
+| Superficie edificada | **34,8 %** | **1,2 %** |
+| Viario | 18,8 % | 2,3 % |
+| Verde | 15,4 % | 9,7 % |
+| Altura mediana / p95 | 25 / 42 m | **8 / 12 m** |
+| Huellas en el extracto | 12.570 (3,2 km) | 1.572 (1,7 km) |
+| Con `building:levels` | 2.286 de 3.688 | 932 de 1.205 |
+| Con `height` | 0 | 7 |
+| Sin nada | 1.402 | 266 |
+
+**El problema no es la falta de datos: es que CityDreamer necesita densidad.** Normaliza la
+altura a 640 m, así que una casa de 8 m ocupa el **1,2 %** del rango vertical: literalmente
+invisible. Y como el 98,8 % del lienzo está vacío, el GAN rellena el hueco con lo que
+aprendió (fachadas urbanas), no con prados. Para un pueblo hay que cambiar de herramienta,
+no de parámetros.
+
+### 8.1 Qué datos SÍ hay en España (probado hoy)
+
+- **Catastro (WFS INSPIRE, gratis y sin clave)**: devuelve `BuildingPart` con
+  `numberOfFloorsAboveGround` — es decir, **plantas reales por edificio**, incluidos pajares y
+  naves. Probado con un bbox de Pontejos: `HTTP 200`, 25.830 B de GML y plantas 3/1/1/1/2.
+  Endpoint: `https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx` (`typeNames=bu:BuildingPart`).
+  En Madrid OSM ya trae `building:levels`; en un pueblo Catastro es **mejor que OSM**.
+- **PNOA / ortofoto del IGN (WMS, gratis)**: `https://www.ign.es/wms-inspire/pnoa-ma`,
+  capa `OI.OrthoimageCoverage`. Probado sobre Pontejos: **JPEG real de 512×512, 57.745 B**
+  — cubiertas, calles, prados y arbolado a ~25 cm/px en la capa nativa. Es la **textura** que
+  hoy no tenemos en el render.
+- **MDT / LiDAR (IGN, 2 m)**: para que el terreno no sea plano (Cantabria tiene relieve).
+- **Mapillary (CC-BY-SA, API gratuita)**: fotos a pie de calle → únicas imágenes de fachada
+  con licencia libre.
+
+### 8.2 La receta para un pueblo
+
+1. **Geometría**: huellas y plantas de **Catastro** (WGS84, WFS) + calles y usos de OSM.
+2. **Relieve**: MDT del IGN como base del height field (el modelo lo ignora, el visor no).
+3. **Textura de suelo y cubiertas**: ortofoto PNOA por teselas WMS → UV sobre las huellas.
+4. **Fachadas**: Mapillary o fotos propias; si no hay, color plano por tipología
+   (pizarra/teja, muro encalado) en vez de inventar con el GAN.
+5. **Si se quiere "generativo"**: CityDreamer solo como *relleno de estilo* en áreas sin
+   dato, y avisando de que inventará arquitectura urbana.
+6. **La vía que gana en un pueblo**: **fotogrametría / Gaussian Splatting** con un móvil
+   (2-3 min de vídeo en círculo). Da el pueblo **real y texturado**, y entrena en una
+   3060 de 6 GB sin problema porque la escena es pequeña — justo lo que CityDreamer no puede.
+
+## 9. Y el modelo de lenguaje, ¿qué pinta aquí?
 
 Un LLM (qwen3.6, deepseek, el que sea) **no genera geometría 3D**. No hay prompt que
 convierta "hazme Berruguete" en una malla: quien genera la ciudad es el GAN de
