@@ -113,6 +113,21 @@ Resultado medido del extracto:
    (200 OK sin cuerpo) y el script original se queda en un `while` infinito reintentando.
    Se sustituye por el dato real de OSM (`leisure=park|garden|…`, `landuse=grass|forest|…`,
    `natural=wood|water`).
+4. **`scripts/osm_image_fetcher.py` no acepta `--zoom` por línea de órdenes**:
+   `add_argument("--zoom", default=15)` va **sin `type=int`**, así que con `--zoom 18`
+   llega un `str` y revienta en `2.0**zoom_level` (`TypeError: unsupported operand
+   type(s) for ** or pow(): 'float' and 'str'`). Con el valor por defecto no falla, de ahí
+   que no se hubiera visto. Ya no lo usamos (ver punto 3), pero si alguien lo rescata:
+   `--zoom`, `type=int`.
+
+### 5.2b El endpoint de Overpass cae, y hay que tener plan B
+
+`overpass-api.de` devolvió **502 Bad Gateway** en el primer intento con un recuadro de
+3,2 × 3,2 km. `scripts/berruguete_osm_fetch.py` recorre tres espejos en orden
+(`overpass-api.de` → `overpass.kumi.systems` → `overpass.private.coffee`) y el segundo
+sirvió el extracto completo: **18,06 MB, 124.759 nodos, 23.432 ways, 602 relations**.
+Con un solo endpoint, la tarea habría muerto por infraestructura ajena.
+
 
 ### 5.3 Pesos y aspecto
 
